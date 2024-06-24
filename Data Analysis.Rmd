@@ -1,0 +1,1314 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<center><h1>ANALISI DATASET "NATIONAL LIFE EXPECTANCIES"</h1></center>
+
+<center> <h5> Progetto d'esame conclusivo del corso di studi in Data Analytics anno 2023/2024 a cura di </h5> </center>
+
+<h5>
+
+<center> Bortolussi Lorenzo </center>
+
+<center> Bosco Francesco </center>
+
+<center> Bredariol Francesco </center>
+
+<center> Tonet Lorenzo </center>
+
+</h5>
+
+***
+
+<center> <h2> Introduzione </h2> </center>
+
+<center><h5> descrizione del dataset e definizione dell'obiettivo dell'analisi </h5></center>
+
+<h3> Descrizione Dataset </h3>
+<p> Il nostro dataset, "National Life Expectancies", è un dataset che contiene informazioni riguardo 185 Paesi nel Mondo. 
+Queste informazioni passano da semplici descrizioni demografiche sino a dettagli geopolitici e la loro natura è quasi completamente numerica, poiché questi dati sono per lo più indici e percentuali.</br>
+La fonte dei dati è lo "United Nations Human Development Report".
+</p>
+<h3> Obiettivo Analisi </h3>
+<p> Partendo dai dati in nostro possesso la nostra analisi ha l'obiettivo di trovare le relazioni più forti all'interno del dataset avendo come variabile target l'indice "Aspettativa di Vita". Questa ricerca di relazioni sarà preceduta dall'analisi delle singole variabili per poter ottenere a priori informazioni che potrebbero poi rivelarsi importanti. Obiettivo ultimo sarà quello di raggruppare i paesi in cluster di "benessere di vita" sfruttando le informazioni desunte dal lavoro svolto in precedenza. <p>
+
+***
+
+<center><h2> Variabili Dataset </h2></center>
+<center><h5> descrizione variabili dataset e prime osservazioni</h5></center>
+
+<h3> Descrizioni Variabili </h3>
+<p> Andiamo a descrivere le singoli variabili, visualizzandone nome, numero di osservazioni mancanti ed una breve descrizione </p>
+
+|VARIABILE | OSSERVAZIONI MANCANTI | DESCRIZIONE |
+| - | - | - |
+|<b>REGION</b>| 0 | Variabile categoriale che indica una regione associata |
+|<b>COUNTRY</b>| 0 | Nome del Paese |
+|<b>LIFEEXP</b>| 0 | Aspettativa di vita dalla nascita misurata in anni|
+|<b>ILLITERATE</b>| 14 | Tasso di analfabetismo percentuale negli adulti (età > 15 anni) |
+|<b>POP</b>| 1 | Popolazione nel 2005 in milioni di abitanti|
+|<b>FERTILITY</b>| 4 | Tasso di fertilità, nascite per donna|
+|<b>PRIVATEHEALTH</b>| 1 | Spesa sanità 2004 misurata in %GDP|
+|<b>PUBLICEDUCATION</b>| 28 | Spesa educazione misurata in %GDP|
+|<b> HEALTHEXPEND </b>| 5 |Spesa sanitaria pro capite 2004 misura in USD|
+|<b> BIRTHATTEND </b> | 7 | % Nascite assistite da personale specializzato |
+|<b> PHYSICIAN </b> | 3 | Medici per 100,000 abitanti |
+|<b> SMOKING </b> | 88 | % Fumatori maschi adulti |
+|<b> REASEARCHERS </b> | 95 | Ricercatori in Ricerca e Sviluppo per Milioni di abitanti |
+| <b> GDP </b> | 7 | Prodotto Interno Lordo in miliardi di USD |
+| <b> FEMALEBOSS </b> | 87 | % di donne con posizioni di dirigenza |
+
+<h3> Osservazioni </h3>
+<p> Notiamo subito che sarà per noi necessaria la gestione delle osservazioni mancanti. Per esempio dobbiamo decidere come trattare la variabile "FEMALEBOSS" che ha un tasso di NA prossimo al 50%. Nel prossimo paragrafo ci soffermeremo dunque su questo aspetto e sulla scelta della fattorizzazione di alcune variabili quali potrebbero essere REGION.</p>
+
+***
+
+<center><h2> Bonifica dei dati </h2></center>
+<center><h5> gestione NA e fattorizzazione </h5></center>
+
+<p> La primissima operazione da compiere sarà il caricamento dei dati da file CSV. Per comodità abbiamo nominato il file "life expectation.csv". Nella lettura ci ricordiamo di settare header = TRUE. Eseguiamo subito una summary per poter trarre le prime conclusioni. </p>
+<p>Prepariamo il nostro ambiente R importando le librerie necessarie e definendo dei colori utili alla visualizzazione dei grafici</p>
+
+```{r libraries and colors setup}
+library(patchwork)
+library(ggplot2)
+library(ggExtra)
+library(moments)
+library(sf)
+library(rnaturalearth)
+library(dplyr)
+library(corrplot)
+library(MASS)
+
+set.seed(1235)
+
+verde_acqua = "#64F9C7"
+giallo = "#FFFF00"
+arancione = "#FFB600"
+verde_acqua_scurito = "#3da07f"
+arancione_scurito = "#D69A01"
+black ="#000000"
+
+col_map = c("1" = "#64F9C7", "2" = "#FFFF00", "3" = "#FFB600", "4" = "#ee6055", "5" = "#57f054", "6" = "#c73596", "7" = "#a26769", "8" = "#7ca5b8")
+```
+
+```{r reading}
+data = read.csv("life expectation.csv", header = TRUE)
+original_data = data
+summary(data)
+```
+
+<h2> Fattorizzazione </h2>
+<h5> COUNTRY </h5>
+<p> Il summary ci evidenzia subito come la variabile COUNTRY sia un character e per questo motivo decidiamo di trattarla come factor. Dobbiamo sottolineare tuttavia che questa variabile non ha alcun valore duplicato e possiamo già dedurre che non è di rilievo ai fini della nostra analisi. Potrebbe essere interessante trasformare questa variabile fattoriale in una variabile di tipo "posizione geografica", tuttavia decidiamo di sfruttare a questo fine la variabile REGION.</p>
+
+```{r country factor}
+data$COUNTRY = factor(data$COUNTRY)
+```
+<h5> REGION </h5>
+<p> REGION è una variabile che descrive l'appartenenza dei Paesi a cluster geografici ed è questo il motivo per cui decidiamo di convertirla a factor.</p>
+```{r region factor}
+data$REGION = factor(data$REGION)
+```
+
+<h2> Gestione NA </h2>
+
+<p> Per quanto riguarda gli NA decidiamo di eseguire un approccio in base alla percentuale di quest'ultimi e al tipo di analisi da eseguire. Nei casi delle analisi univariate rimuoviamo gli NA; nei casi delle analisi bivariate valutiamo la percentuale di NA della seconda variabile (ricordiamo che la variabile target da noi considerata è sempre LIFEEXPECT): in caso questa sia troppo alta (>30%) non riterremo l'analisi attendibile e quindi la eviteremo, mentre se questa sarà sufficientemente bassa (<30%) rimuoveremo semplicemente le righe che presentano gli NA. </br>
+Il codice non verrà presentato ora poiché sarà nelle singole analisi che verrà effettuato questo passaggio di pulizia. Diamo comunque uno sguardo alla distribuzione degli NA, nel nostro dataset.</p>
+
+<p> Otteniamo una tabella in cui vengono indicati, in base al paese, quanti NA sono presenti per ogni variabile </p>
+
+```{r na counts}
+country_na_counts = original_data %>%
+  group_by(COUNTRY) %>%
+  summarise(across(everything(), ~sum(is.na(.))))
+
+country_na_counts
+```
+
+<p> Otteniamo la somma degli NA per paese e visualiziamone la testa della classifica. </p>
+
+```{r sum country na}
+country_na_counts = original_data %>%
+  group_by(original_data$COUNTRY) %>%
+  summarise(Total_NA = sum(rowSums(is.na(across(-COUNTRY)))))
+
+country_na_counts = country_na_counts[order(country_na_counts$Total_NA, decreasing=TRUE), ]
+country_na_counts
+```
+
+***
+
+<center><h2>REGION</h2></center>
+<center><h5>studio della suddivisione regionale</h5></center>
+
+<p>La prima analisi che andiamo ad effettuare, in maniera mirata, è l'analisi della composizione della variabile REGION. Il motivo di questa scelta è che, prima ancora di studiare la variabile, vogliamo comprendere come sono stati raggruppati i vari Paesi per poter comprendere se ci saranno comportamenti di gruppo giustificabili dalla REGION di appartenenza. Questo potrebbe poi portarci, nel caso, a studiare alcuni risultati a livello regionale anziché a livello statale, poiché questo può rendere più comprensibile il risultato dell'analisi se il comportamento statale presenta una variabilità troppo alta. </p>
+
+<p>Vediamo una distribuzione non completamente uniforme delle Regioni, dunque decidiamo di visualizzare graficamente la cartina per capire meglio la suddivisione che è stata effettuata. Dobbiamo innnanzitutto sistemare leggermente alcuni valori di COUNTRY per poter lavorare per poter abbinare loro a dei nomi validi per la .</p>
+```{r mappa regioni, warning = FALSE, echo = FALSE}
+sistema = function(x) gsub("\xa0", " ", x, useBytes = TRUE)
+leva_parentesi = function(x) gsub("\\(.*?\\)", "", x)
+data$COUNTRY = as.vector(sapply(data$COUNTRY, sistema))
+data$COUNTRY[data$COUNTRY == "C\xf4te d'Ivoire" ] = "Côte d'Ivoire"
+data$COUNTRY = as.vector(sapply(data$COUNTRY, leva_parentesi))
+
+world = ne_countries(scale = "medium", returnclass = "sf")
+countries_regions = data.frame(
+  country = data$COUNTRY, 
+  region = data$REGION
+)
+world_regions = world %>%
+  left_join(countries_regions, by = c("name_long" = "country"))
+
+ggplot(data = world_regions) +
+  geom_sf(aes(fill = region), color = "white", lwd = 0.2) +
+  scale_fill_manual(values = col_map) +
+  labs(title = "Regioni", fill = "Legenda")
+```
+<p> Scopriamo che non è stata effettuata una suddivsione totalmente geografica. In particolare sono le regioni 5 ed 8 ad essere non contigue, e immaginiamo dunque il motivo possa essere la struttura dell'organizzazione che raccoglie i dati. Comunque sia ora abbiamo uno sguardo più conscio sulla struttura della variabile REGION e questo ci potrà sicuramente aiutare in futuro. </p>
+
+***
+
+<center><h2> Analisi Univariata </h2></center>
+<center><h5> delle singole variabili </h5></center>
+
+<p> In questo paragrafo affrontiamo lo studio univariato delle variabili. Abbiamo due tipi di variabile, le categoriali e le numeriche. Decidiamo tuttavia di non definire due tipi di analisi "prefissati" ma bensì ci lasciamo la libertà, variabile per variabile, di effettuare un analisi ad hoc, in cui in base ai risultati che troviamo decidiamo se esplorare con nuovi strumenti i dati. </p>
+
+<h3>REGION</h3>
+
+<p>La variabile REGION è una variabile categorica che indica la regione di appartenenza di un Paese. Le regioni in totale sono 8. Andiamo a visualizzare il conteggio dei paesi per regione.</p>
+
+```{r region count, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x = REGION)) + 
+  geom_bar(fill = giallo, color = "black") + 
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5, size = 5) +
+  ggtitle("REGION COUNT")
+```
+
+<p>Si può notare come il numero di paesi per regione sia molto variabile, per esempio la 5° ha solamente 3 misure, mentre la 6° ne ha 44. Principalmente le regioni meno popolate sono la 4° e la 5°. Sarà di interesse analizzare altre variabili condizionate alla regione per cerecare eventuali relazioni.</p>
+
+<h3>COUNTRY</h3>
+
+<p>La variabile COUNTRY è anch'essa una variabile categorica, ma in questo caso indica il nome del paese quindi ha un'utilità più di "indice" che di effettiva variabile.</p>
+
+<h3>LIFEEXP</h3>
+
+<p>La variabile LIFEEXP indica l'aspettativa di vita di un determinato paese, misurata in anni. Andiamo a visualizzare il summary per avere un'idea della distribuzione.</p>
+
+```{r summary lifeexp}
+summary(data$LIFEEXP)
+```
+
+<p>Notiamo come lo spettro dei valori va da 40,5 a 82,3 quindi procediamo con un istogramma per visualizzare la distribuzione di tali dati. Come numero di colonne ci baseremo sul valore calcolato grazie alla formula di Sturges, facendo degli aggiustamenti dove necessario</p>
+
+```{r plot lifeexp, warning = FALSE, echo = TRUE}
+sturges_k = nclass.Sturges(data$LIFEEXP)
+
+p1 =ggplot(data, aes(x = LIFEEXP, y = ..density..)) + 
+  geom_histogram(bins = sturges_k + 1 , fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  ggtitle("Life expectancy histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)+
+  xlim(c(40, 80))
+
+p2 = ggplot(data, aes(x = LIFEEXP)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Life expectancy (years)") +
+  xlim(c(40, 80))
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>Dal grafico e dal calcolo della misura dell'asimmetria si può notare come la distribuzione sia leggermente asimmetrica con la frequenza maggiore tra i 70 e gli 80 anni. La mediana della distribuzione è 71 anni, mentre la media è 67,05 anni. Il 50% della distribuzione si trova tra i 59,70 e i 75,1 anni. Per avere una misura dell'assimetria calcoliamo l'indice di skewness.</p>
+
+```{r skewness lifeexp}
+skewness(data$LIFEEXP)
+```
+
+<p>Skeweness negativa indica che la coda della distribuzione è verso sinistra, come in questo caso.</p>
+
+<h3>ILLITERATE</h3>
+
+<p>La variabile ILLITERATE indica la percentuale di analfabetismo negli adulti (età \> 15 anni). Andiamo a visualizzare il summary.</p>
+
+```{r summary illiterate}
+summary(data$ILLITERATE)
+```
+
+<p>Sono presenti 14 valori nulli, ovvero meno del 10% del totale. Procediamo con la visualizzazione della distribuzione.</p>
+
+```{r illiterate plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = ILLITERATE, y = ..density..)) + 
+  geom_histogram(bins = sturges_k +1, fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  ggtitle("Illiterate histogram") +
+  xlim(c(0, 80)) +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = ILLITERATE)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Illiterate rate (%)") +
+  xlim(c(0, 80))
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>Anche in questo caso notiamo una forte asimmetria, la maggior parte dei paesi ha un tasso di analfabetismo basso, inferiore al 30% mentre pochi paesi hanno un tasso molto alto. I paesi con valori considerati outlier sono (in ordine dal più alto): Burkina Faso, Mali, Chad, Afghanistan, Niger, Guinea. Notiamo come a parte per l'Afghanistan, tutti i paesi con tassi di analfabetismo molto alti facciano parte della regione 6.</p>
+
+```{r skewness illiterate}
+skewness(data$ILLITERATE, na.rm = T)
+```
+
+<p>La skeweness positiva indica che la coda della distribuzione è verso destra, come in questo caso, il che non è un bene poiché indica un tasso di analfbetismo generalmente sopra la media.</p>
+
+<h3>POP</h3>
+
+<p>La variabile POP indica la popolazione nel 2004 in milioni di abitanti. Andiamo a visualizzare il summary.</p>
+
+```{r summary pop}
+summary(data$POP)
+```
+
+<p>la presenza dell'unico valore mancante verrà ignorata nell'analisi. Procediamo con la visualizzazione della distribuzione.</p>
+
+```{r plot pop, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = POP, y = after_stat(density))) + 
+  geom_histogram(fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  ggtitle("Population histogram") +
+  xlim(c(0, 250)) +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = POP)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Population (millions)") +
+  xlim(c(0, 250))
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>A causa della fortissima dispersione delle misure di Cina e India, abbiamo deciso di tagliare il grafico per rendere leggibili i dati. la distribuzione resta comunque asimmetrica, tornando a evidenziare come la maggior parte dei paesi abbia una popolazione relativamente bassa mentre pochi paesi registrano numerosi abitanti</p>
+
+<h3>FERTILITY</h3>
+
+<p>La variabile FERTILITY indica il tasso di fertilità, ovvero il numero di nascite per donna. Andiamo a visualizzare il summary.</p>
+
+```{r summary fertility}
+summary(data$FERTILITY)
+```
+
+<p>Procediamo con la visualizzazione.</p>
+
+```{r plot fertility, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = FERTILITY, y = ..density..)) + 
+  geom_histogram(fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  ggtitle("Fertility histogram") +
+  xlim(c(0, 10)) +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = FERTILITY)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Fertility rate (birth per woman)") +
+  xlim(c(0, 10))
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>Andiamo anche a calcolare l'indice di assimmetria.</p>
+
+```{r skewness fertility}
+skewness(data$FERTILITY, na.rm = T)
+```
+
+<p>Anche in questo caso la distribuzione è asimmetrica, con la maggior parte dei paesi che hanno un tasso di fertilità basso, in media 3,15. La distribuzione è molto concentrata tra 1 e 5 figli per donna. La fertilità massima registrata è quella dell'Afganistan con 7,5 figli per donna, mentre la minima è quella di Hong-Kong con 0,8 figli per donna.</p>
+
+<h3>PRIVATEHEALTH</h3>
+
+<p>
+La variabile PRIVATEHEALTH indica la spesa per la samità privata del 2004 misurata in %GDP. Andiamo a visualizzare il summary.
+</p>
+
+```{r summary private health}
+summary(data$PRIVATEHEALTH)
+```
+<p>
+la presenza dell'unico valore mancante verrà ignorata nell'analisi. Si può già notare come i valori non superino l'8,5% e che questo valore sia già abbastanza lontano dalla maggior parte dei dati guardando il primo e il terzo quartile. Procediamo con la visualizzazione della distribuzione per ricavare ulteriori informazioni.
+</p>
+```{r privete health plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = PRIVATEHEALTH, y = ..density..)) + 
+  geom_histogram(fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  xlim(c(0, 9)) +
+  ggtitle("Private health expediture histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = PRIVATEHEALTH)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlim(c(0, 9)) +
+  xlab("Private health expediture (% of GDP)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+<p>
+Possiamo notare come la distribuzione sia concentrata principalmente tra 0 e 5% e come la maggior parte dei paesi abbia una spesa inferiore al 3% del GDP. La distribuzione è molto asimmetrica, con una coda verso destra. Vi sono presenti due outliers con i valori 8,5 e 8,4. Identificando questi due paesi si scoprono essere rispettivamente gli Stati Uniti e il Libano, ovvero due paesi in cui il sistema sanitario è altamente privatizzato e frammentato e i servizi medici gratuiti sono quasi inesistenti dunque la spesa privata è di conseguenza molto alta. Ora andiamo a vedere la distribuzione senza quei due valori.
+</p>
+
+```{r outlier removed private health plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = PRIVATEHEALTH, y = ..density..)) + 
+  geom_histogram(fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  xlim(c(0, 6)) +
+  ggtitle("Private health expediture histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = PRIVATEHEALTH)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlim(c(0, 6)) +
+  xlab("Private health expediture (% of GDP)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>
+La distribuzione sembrerebbe seguire un andamento normale quindi si prova a confrontarla con una distribuzione normale teorica con media e deviazione standard calcolate sui dati. Per fare ciò si utilizza due grafici molto utili ovvero il quantile-quantile e la funzione di ripartizione empirica che ci permetterà di confrontare le distribuzioni.
+</p>
+
+```{r private health qqplot , warning = FALSE, echo = FALSE}
+qqnorm(data$PRIVATEHEALTH[data$PRIVATEHEALTH < 8], col = arancione)
+qqline(data$PRIVATEHEALTH[data$PRIVATEHEALTH < 8], col = verde_acqua)
+
+plot(ecdf(data$PRIVATEHEALTH[data$PRIVATEHEALTH < 8]), col = arancione, main = "Funzione di ripartizione empirica")
+m = mean(na.omit(data$PRIVATEHEALTH[data$PRIVATEHEALTH < 8]))
+s = sd(na.omit(data$PRIVATEHEALTH[data$PRIVATEHEALTH < 8]))
+curve(pnorm(x, mean = m, sd = s), add = TRUE, col = verde_acqua, lwd = 2)
+```
+<p>
+Si nota come entrambi i grafici mostrino una forte aaderenza alla distribuzione gaussiana, sopratutto nella funzione di ripartizione empirica. Questo ci fa pensare che la distribuzione sia effettivamente normale.
+</p>
+
+<h3>PUBLICEDUCATION</h3>
+
+<p>
+La variabile PUBLICEDUCATION indica la spesa per l'educazione pubblica del 2004 misurata in %GDP. Andiamo a visualizzare il summary.
+</p>
+
+```{r summary publiceducation}
+summary(data$PUBLICEDUCATION)
+```
+
+<p>
+Si nota come in questa variabile la quantità relativa di valori nulli sia abbastanza alta (circa il 15% dei dati). Nonostante ciò si può vedere come la maggior parte dei dati presenti sia concentrata intorno ai valori di media e mediana, anch'essi molto vicini. Procediamo con la visualizzazione della distribuzione per ricavare ulteriori informazioni. 
+</p>
+
+```{r public education plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = PUBLICEDUCATION, y = ..density..)) + 
+  geom_histogram(fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  xlim(c(0, 15)) +
+  ggtitle("Public education histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = PUBLICEDUCATION)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlim(c(0, 15)) +
+  xlab("Public expenditure on education (% of GDP)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>
+Anche per questa variabile, oltre alla presenza di 4 outliers si può notare la somiglianza ad una distribuzione normale, così come l'altra variabile che misura una percentuale di spesa rispetto al GDP.
+I 4 outliers sono in ordine Lesotho, Botswana, Cuba, Yemen quindi si può notare come i primi due valori più alti appartengano alla regione 6. Anche qui la distribuzione assomiglia abbastanza ad una normale, quindi si conducono i medesimi test rispetto alla variabile precedente.
+</p>
+
+```{r removed outliers qqplot public education, echo = FALSE}
+qqnorm(data$PUBLICEDUCATION[data$PUBLICEDUCATION < 10], col = arancione)
+qqline(data$PUBLICEDUCATION[data$PUBLICEDUCATION < 10], col = verde_acqua)
+```
+
+```{r empirica publiceducation, warning = FALSE, echo = FALSE}
+plot(ecdf(data$PUBLICEDUCATION[data$PUBLICEDUCATION < 10]), col = arancione, main = "Funzione di ripartizione empirica")
+m = mean(na.omit(data$PUBLICEDUCATION[data$PUBLICEDUCATION < 10]))
+s = sd(na.omit(data$PUBLICEDUCATION[data$PUBLICEDUCATION < 10]))
+curve(pnorm(x, mean = m, sd = s), add = TRUE, col = verde_acqua, lwd = 2)
+```
+
+<p>
+Anche qui i grafici indicano una forte aderenza ad una distribuzione normale con media e deviazione standard calcolate sui dati (rimossi gli outlier).
+</p>
+
+<h3>HEALTHEXPEND</h3>
+
+<p>
+La variabile HEALTHEXPEND indica la spesa sanitaria pro capite del 2004 misurata in USD. Andiamo a visualizzare il summary.
+</p>
+
+```{r summary healthexpend}
+summary(data$HEALTHEXPEND)
+```
+
+<p>
+Già dal summary si può notare come la maggior parte dei dati sia tra i valori 100,5 e 727 nonstante il valore massimo osservato sia di 6096. Questo ci può già far intuire come la distribuzione sarà molto asimmetrica, probabilmente con una lunga coda a destra. Procediamo con la visualizzazione oppure in alternativa il massimo si tratterà di un outlier.
+</p>
+
+```{r health exp plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = HEALTHEXPEND, y = ..density..)) + 
+  geom_histogram(fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  xlim(c(0, 6500)) +
+  ggtitle("Health expenditure per capita histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = HEALTHEXPEND)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlim(c(0, 6500)) +
+  xlab(" Health expenditure per capita (PPP in USD)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>
+Come avevamo previsto la maggior parte dei dati è concentrata sotto il valore 1000. Il valore più alto osservato corrisponde agli Stati Uniti come ci si può aspettare visto il sistema sanitario in questione seguito dal Lussemburgo e altri paesi europei. Calcoliamo l'indice di skeweness per verificare l'assimetria.
+</p>
+
+```{r skewness health exp}
+skewness(data$HEALTHEXPEND, na.rm = T)
+```
+
+<p>
+Il valore fortemente positivo indica che la coda della distribuzione è verso destra, come previsto.
+</p>
+
+<h3>BIRTHATTEND</h3>
+
+<p>
+La variabile BIRTHATTEND indica la percentuale di nascite assistite da personale specializzato. Ci si aspetta che nella maggior parte dei paesi questa peprcentuale sia molto alta con pochi paesi in cui essaa è molto bassa. Andiamo a visualizzare il summary.
+</p>
+
+```{r summary birthattend}
+summary(data$BIRTHATTEND)
+```
+
+<p>
+Come ci si aspetta da una misura percentuale, la distribuzione è tra lo 0 e il 100% con una maggiore concentrazione nella parte alta della distribuzione ma con un valore minimo di 6, molto basso per questo tipo di variabile. Procediamo con la visualizzazione della distribuzione. Ci sono comunque 7 valori mancanti che verranno ignorati nell'analisi.
+</p>
+
+```{r birth attend plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(data, aes(x = BIRTHATTEND, y = ..density..)) + 
+  geom_histogram(bins = 11,fill = giallo, color = "black", boundary = 0) +
+  xlab("") +
+  xlim(c(0,100)) +
+  ggtitle("Birth attended by skilled health personnel histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(data, aes(x = BIRTHATTEND)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlim(c(0, 100)) +
+  xlab("% of birth attended by skilled health personnel") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+```
+
+<p>I valori più bassi sono rispettivamente appartenenti alla regione 5 e tre appartengono alla regione 4, regioni che finora non sono mai spiccate particolarmente, sarà interessante cercare correlazioni aggiuntive. Si può dire che la distribuzione riapetti le ipotesi fatte in precedenza in quanto sia prevalentemente concentrata su valori vicini al 100.</p>
+
+<h3> PHYSICIAN </h3>
+<p> Questa è una variabile che crediamo abbia sicuramente legami con HEALTHEXPEND e PRIVATEHEALTH in quanto i medici presenti in un Paese sono uno degli aspetti principali che vengono considerati quando si parla di spesa medica (pubblica e non). Crediamo che possano esserci correlazioni con LIFEEXP in quanto, si sa, "un medico può salvarti la vita".</p>
+<p>Andiamo a visualizzarne la percentuale di NA. </p>
+```{r na physician}
+p_na = sum(is.na(data$PHYSICIAN))/length(data$PHYSICIAN)
+p_na
+```
+<p> Ci troviamo davanti ad una delle variabili più "complete" del dataset, poiché da valore sia all'analisi univariate che alla bivariata che andremo poi ad eseguire con target LIFEEXP. Possiamo ripulire la variabile delle 3 misurazioni mancanti e cominciare l'analisi. </p>
+
+```{r summary physician}
+ph = na.omit(data$PHYSICIAN)
+summary(ph)
+```
+<p>I valori sono abbastanza ampi e vediamo come il massimo sembri un outlier nei confronti del resto della distribuzione. Questo comportamento comunque non ci stupisce più molto, poiché come abbiamo già notato più volte in questo dataset la presenza di outlier verso destra è solo indice che alcuni Paesi hanno politiche molto più incentrate sulla variabile d'interessa rispetto agli altri. Visualizziamo i grafici <p>
+```{r physician plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(NULL, aes(x = ph, y = after_stat(density))) + 
+  geom_histogram(bins = 25, fill = giallo, color = "black") +
+  xlab("") +
+  ggtitle("Physician histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(NULL, aes(x = ph)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Physician rate (%)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+
+```
+<p>Come previsto il massimo assume il significato di outlier destro per la nostra distribuzione anche se, ugualmente, abbiamo un range di valori molto densi che ricoprono bene l'intero dominio. Abbiamo comunque la maggiore concentrazione schiacciata verso il minimo, ma questa cosa non ci stupisce troppo dopo i risultati ottenuti da HEALTHEXPEND e PRIVATEHEALTH.</p>
+<h3> SMOKING </h3>
+<p> SMOKING potrebbe essere una variabile interessante, poiché, come è noto, il fumo è una delle cause di morte a livello globale, e dunque nell'analisi bivariata con target LIFEEXP ci possiamo aspettare qualcosa di interessante (tuttavia queste sono solo speculazioni a priori). Inoltre ricordiamo che SMOKING presenta il tasso di fumatori solo per la popolazione maschile e soprattutto è molto probabile che appaia come una distribuzione uniforme, poiché il vizio del fumo dovrebbe essere presente in egual modo in tutto il mondo.</p>
+<p> Andiamo a visualizzarne la percentuale di NA. </p>
+```{r na smoking}
+p_na = sum(is.na(data$SMOKING))/length(data$SMOKING)
+p_na
+```
+<p>La percentuale è davvero elevata e questo ci indica un'inaccuratezza della capacità descrittiva reale della distribuzione della variabile. Questo inoltre significa che difficilmente da un'analisi bivariata potremo ottenere risultati soddisfacenti. </p>
+```{r summary smoking}
+sm = na.omit(data$SMOKING)
+summary(sm)
+```
+<p>Dai dati sembra cadere l'ipotesi di uniformità della distribuzione, tuttavia media e mediana sembrano sufficientemente vicine e centrali per indicarci un'indice di simmetria vicino a 0(probabilmente leggermente spostato verso sinistra). Calcoliamolo.</p>
+```{r skewness smoking}
+idx = skewness(sm)
+idx
+```
+<p>Nonostante la mediana alla sinistra della media l'indice di simmetria ci indica una leggera asimmetria verso destra. Dunque non ci resta che visualizzare il grafico per capire da cosa potrebbe essere dato questo comportamento. </p>
+```{r smoking plot, warning = FALSE, echo = FALSE}
+p1 = ggplot(NULL, aes(x = sm, y = after_stat(density))) + 
+  geom_histogram(bins = 20, fill = giallo, color = "black") +
+  xlab("") +
+  ggtitle("Smoking histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(NULL, aes(x = sm)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Smoking rate (%)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+
+```
+<p> Alla destra della media si presenta un leggero secondo picco che sbilancia la distribuzione e la rende leggermente asimmetrica, anche se si mantiene il picco principale tra media e mediana. I dati inoltre ci presentano una situazione abbastanza sensata, con un comportamento che tende verso la destra e non la sinistra, dunque ad una tendenza generale ad avere un tasso di fumatori più elevato. Crediamo che la mancanza del dato relativo alle donne sia abbastanza di rilievo, poiché LIFEEXP è indipendente dal sesso mentre questa variabile è fortmente dipendente e ciò rende molto più difficile riuscire a scovare correlazioni tra le due. </p>  
+
+<h3> RESEARCHERS </h3>
+<p>RESEARCHERS è una variabile interessante, su cui non sappiamo granché esprimerci a priori. Possiamo ipotizzare valori abbastanza bassi e qualche outlier visto che nel mondo i fondi per la ricerca e lo sviluppo sono solitamente sottovalutati ad eccezione di alcuni Paesi che investono grandissimi quantità di denaro.</p>
+<p>Valutiamo innanzitutto la percentuale di NA di RESEARCHERS</p>
+```{r}
+p_na = sum(is.na(data$RESEARCHERS))/length(data$RESEARCHERS)
+p_na
+```
+<p>Si evince che la percentuale di NA è così elevata da coprire più della metà della variabile. Questo ci indica che l'analisi non sarà esaustiva del vero comportamento della variabile. </p>
+```{r}
+rs = na.omit(data$RESEARCHERS)
+summary(rs)
+```
+<p>Media e Mediane sufficentemente lontane, range di valori molto vasto e massimo su tutta un'altra scala rispetto al resto. Probabilmente otterremo valori verso destra che ci andranno a rendere difficile la visualizzazione dei dati tramite grafici. Vedremo dunque poi se varrà la pena di circoscrivere l'analisi ad un range minore. </p>
+```{r, warning = FALSE, echo = FALSE}
+p1 = ggplot(NULL, aes(x = rs, y = after_stat(density))) + 
+  geom_histogram(bins = 11, fill = giallo, color = "black") +
+  xlab("") +
+  ggtitle("Researchers histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(NULL, aes(x = rs)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Researchers rate (%)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+
+```
+<p>Come previsto, grafici pressoché senza valore per via di 3 outliers principali. Ci proponiamo allora di rivisualizzarli, con l'intento di trovare qualche comportamento interessante, studiando solo i valori minori di una certa soglia. Come soglia scegliamo 5000, che dovrebbe tagliare fuori tutti gli outlier individuati precedentemente. </p>
+```{r, warning = FALSE, echo = FALSE}
+rsl = rs[rs<5000]
+p1 = ggplot(NULL, aes(x = rsl, y = after_stat(density))) + 
+  geom_histogram(bins = 30, fill = giallo, color = "black") +
+  xlab("") +
+  ggtitle("Researchers <5000 histogram") +
+  xlim(c(0, 5000)) + 
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(NULL, aes(x = rsl)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("Researchers <5000 rate (%)") +
+  xlim(c(0, 5000))
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+
+```
+<p> Il grafico ora risulta più comprensibile e (anche considerando gli outlier) si mantiene un comportamento abbastanza stabile di decrescenza. Si nota che intorno alla mediana abbiamo l'unico picco della distribuzione e la coda verso destra decresce ad una velocità pressoché costante. Questo è un comportamento che ci si poteva aspettare valutando le politiche globali sui temi della ricerca e lo sviluppo. Sarebbe interessante valutare questa variabile condizionatamente a REGION per vedere la distribuzione  a livello regionale della ricerca e lo sviluppo. Ricordiamo infine nuovamente che la variabile presenta una percentuale di NA così elevata che dobbiamo "prendere con le pinze" le conclusioni che riusciamo ad ottenere.</p>
+
+<h3> GDP </h3>
+<p>GDP è la variabile che indica il prodotto interno lordo di un Paese, quindi a priori potrei aspettarmi una variabile che presenta dei grandi squilibri (ci sono paesi molto più ricchi e paesi molto più poveri) e sarebbe sicuramente interessante andare a valutare il GDP condizionato a REGION. <p>
+<p>Andiamo a valutare la percentuale di NA presentin in GDP.</p>
+```{r}
+p_na = sum(is.na(data$GDP))/length(data$GDP)
+p_na
+```
+<p> La percentuale di NA è davvero bassa, volendo verificare esattamente il numero di NA otteniamo: </p>
+```{r}
+c_na = sum(is.na(data$GDP))
+c_na
+```
+```{r}
+gdp = na.omit(data$GDP)
+summary(gdp)
+```
+<p> Come ci aspettavamo abbiamo un range di valori enormi, e probabilmente, già solo dal summary, possiamo aspettarci che verso il massimo siano presenti alcuni outlier che porteranno problemi nel momento in cui andremo a rappresentare i grafici. Media e Mediana sono completamente diverse e questo è quasi sicuramente dovuto alla presenza di outlier verso la coda destra della distribuzione.</p>
+```{r, warning = FALSE, echo = FALSE}
+p1 = ggplot(NULL, aes(x = gdp, y = after_stat(density))) + 
+  geom_histogram(bins = 11, fill = giallo, color = "black") +
+  xlab("") +
+  ggtitle("GDP histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(NULL, aes(x = gdp)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("GDP rate (%)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+
+```
+
+<p>Come previsto la coda destra presenta degli outlier davvero significativi che rendono i nostri grafici pressoché privi di significato. Proviamo allora a rivisualizzarli questa volta considerando solo i dati nel range 0-250  (leggermente sopra la media).</p>
+```{r, warning = FALSE, echo = FALSE}
+gdpl = gdp[gdp<250]
+
+p1 = ggplot(NULL, aes(x = gdpl, y = after_stat(density))) + 
+  geom_histogram(bins = 25, fill = giallo, color = "black") +
+  xlab("") +
+  xlim(c(0, 250)) + 
+  ggtitle("GDP 0-250 histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(NULL, aes(x = gdpl)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlab("GDP 0 - 250 rate (%)") + 
+  xlim(c(0, 250))
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+
+```
+<p>Questa volta otteniamo un grafico già pù comprensibile e da cui possiamo visualizzare informazioni aggiuntive. Comprendiamo infatti come gli outlier presentino dei cluster, probabilmente ad indicare che in realtà lo studio della singola variabile GDP non è molto utile e potrebbe essere di rilievo maggiore lo studio congiunto ad altri fattori, quali potrebbero essere REGION o PRIVATEHEALTH e simili (che sono valutati proprio in termini di %GDP). </p>
+
+<h3> FEMALEBOSS </h3>
+<p> FEMALEBOSS è la variabile che indica la percentuale di donne che ricoprono posizioni manageriali. A priori ci possiamo aspettare valori leggermente bassi per il retaggio culturale globale sull'argomento.</p>
+<p>Andiamo a valutare la percentuale di NA presenti in FEMALEBOSS.</p><
+```{r}
+p_na = sum(is.na(data$FEMALEBOSS))/length(data$FEMALEBOSS)
+p_na
+```
+<p> Notiamo che la percentuale è davvero elevata e questo ci indica che l'analisi che faremo sarà poco significativa, nonostante ciò procediamo con la pulizia della variabile e la successiva analisi vera e propria. </p>
+```{r}
+fb = na.omit(data$FEMALEBOSS)
+summary(fb)
+```
+<p> I dati mostrano dei valori medi inferiori alla soglia del 50%, come ci aspettavamo, tuttavia vediamo massimi e terzo quartile sufficientemente spostati verso la soglia del 50%, segnale positivo. Notiamo che media e mediana sono molto vicine, e che sono anche molto vicine alla media aritmetica tra massimo e minimo, quindi possiamo aspettarci un indice di simmetria prossimo a 0 rispetto alla media. Andiamo a calcolarlo. </p
+```{r}
+idx = skewness(fb)
+idx
+```
+<p> Esso è un po' più piccolo di 0 (anche se non eccessivamente), dunque non ci resta che visualizzare affiancati istogramma e grafico di densità empirica per vedere se ci abbiamo azzecato. </p>
+```{r, warning = FALSE, echo = FALSE}
+p1 = ggplot(NULL, aes(x = fb, y = after_stat(density))) + 
+  geom_histogram(bins = 9, fill = giallo, color = "black") +
+  xlab("") +
+  xlim(c(-2, 62)) +
+  ggtitle("FemaleBoss histogram") +
+  geom_density(fill = verde_acqua, color = verde_acqua, alpha = 0.25, lwd = 2)
+
+p2 = ggplot(NULL, aes(x = fb)) +
+  geom_boxplot(fill = arancione, color = "black") +
+  xlim(c(-2, 62)) +
+  xlab("FemaleBoss rate (%)") 
+
+p1 + p2 + plot_layout(heights = c(6, 1))
+
+```
+<p> Il grafico rivela un secondo picco oltre a quello della media verso il primo quartile che ci spiega l'indice di simmetria leggermente più piccolo di 0. Tuttavia dobbiamo ricordarci nuovamente come, per l'eccessiva presenza di NA, non ci è dato sapere se questo è il reale comportamento della variabile. Interessante sarebbe capire quali sono i paesi che presentano valore NA per cercare di comprendere la natura dell'assenza del dato.</p>
+
+***
+
+<center> <h2> Analisi Bivariata </h2> </center>
+<center> <h5> analisi bivariata con target LIFEEXP </h5> </center>
+
+<p> In questo paragrafo ci addentriamo all'interno dello studio bivariato con target LIFEEXP. Grazie all'analisi univariata precedentemente affrontata abbiamo a disposizione informazioni che andremo a sfruttare. </p>
+
+<h3> SELEZIONE DELLE VARIABILI </h3>
+<p> Come già anticipato all'inizio del documento per l'analisi bivariata non tutte le variabili verranno considerate. In particolare decidiamo di escludere dalla nostra analisi tutte le variabili con un eccessiva percentuale di NA e la variabile COUNTRY, che risulta essere un factor con 185 livelli di tipo stringa diversi e dunque senza un utilità per la previsione di LIFEEXP. Le variabili con eccessivi NA sono RESEARCHERS, SMOKING e FEMALEBOSS. L'assenza di SMOKING è secondo noi una perdita abbastanza importante poiché il fumo è una delle principali cause di morte nel mondo, tuttavia davanti ad una percentuale di NA > 45% e alla presenza di dati che considerano solo gli uomini non possiamo che scartare la variabile.</p>
+
+```{r, warning = FALSE, echo = TRUE}
+data = data[,  !(names(data) %in% c("COUNTRY", "SMOKING", "RESEARCHERS", "FEMALEBOSS"))]
+```
+<h3> CALCOLO DELLE CORRELAZIONI </h3>
+<p> Procediamo ora a calcolare le correlazioni tra la variabile target ed il resto delle variabili. Dobbiamo ricordarci tuttavia che REGION è un fattore e dunque dovremo escluderla in questo processo. Dopo aver calcolato le correlazioni tra le variabili numeriche procediamo a visualizzarle in un grafico per individuare i valori più interessanti </p>
+```{r, warning = FALSE, echo = TRUE}
+numeric_vars = data[, sapply(data, is.numeric)]
+cm = cor(numeric_vars, method = "pearson", use = "pairwise.complete.obs")
+
+corrplot(cm,tl.col = 'black', method = 'square', col = colorRampPalette(c(verde_acqua_scurito, "white", arancione_scurito))(200))
+correlations = sapply(numeric_vars, function(x) cor(numeric_vars$LIFEEXP, x, use = "pairwise.complete.obs", method = "pearson"))
+
+```
+<p> Avendo scelto LIFEEXP come variabile target, per il momento ci interesseremo devi valori di correlazione con essa. Per visualizzarli meglio si decise di fare un grafico a barre in cui mettiamo in ordine per valore di correlazione le variabili relazionate alla target. </p>
+
+```{r, warning = FALSE, echo = FALSE}
+#togliamo lifeexp
+correlations = correlations[-1]
+correlations = sort(correlations)
+
+df = data.frame(x = factor(names(correlations), levels = names(correlations)), y = correlations)
+ggplot(df, aes(x = x, y = y)) +
+  geom_bar(stat = "identity", fill = verde_acqua, color = "black") +
+  geom_text(aes(label = round(y, 2), y = y + 0.13), vjust = 1, size = 4) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Correlation with life expectancy")
+```
+
+<p> I risultati sono soddisfacenti, poiché abbiamo abbastanza indici di Pearson superiori a 0.5 in modulo. Per quanto riguarda PRIVATEHEALTH, POP e PUBLICEDUCATION, che hanno indici prossimi a 0, decidiamo di non eseguire alcun tipo di analisi bivariata. Possiamo dunque cominciare a tutti gli effetti le nostre analisi bivariate. </p>
+
+<h3>REGION</h3>
+<p>Poiché la regione è un factor è necessario sviluppare un tipo di analisi completamente diversa rispetto alle altre. Per cominciare andiamo a visualizzare i violin boxplot affiancati. </p>
+```{r, warning = FALSE, echo = FALSE}
+rg = data$REGION
+
+ggplot(NULL, aes(x = rg, y = data$LIFEEXP, fill = rg)) + 
+  geom_violin(width = 1.6) +
+  geom_boxplot(width = 0.1, color = "black", alpha = 0.2) +
+  scale_fill_manual(values  = col_map) +
+  labs(title = "Regioni", fill = "Legenda", x = "Regione", y = "Life Expectation")
+```
+<p> Poiché non sembra esserci indipendenza, eseguiamo un test ANOVA. </p>
+```{r, warning = FALSE, echo = TRUE}
+test = aov(data$LIFEEXP~rg)
+summary(test)
+```
+<p> Il test sull'indipendenza ha come risultato un p-value <2e-16 quindi abbastanza piccolo da non mostrare evidenze contro l'ipotesi di indipendenza. Risulta ragionevole pensare che vi è una relazione tra regione di appartenenza e aspettativa di vita. </p>
+
+<h3>ILLITERATE</h3>
+<p> La variabile ILLITERATE a differenza di REGION è quantitativa quindi necessita un'analisi diversa rispetto a quest'ultima. Graficamente, visualizziamo la relazione tra le due variabili con uno scatter-plot. La variabile ILLITERATE presenta 14 valori mancanti</p>
+
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=ILLITERATE, y=LIFEEXP)) + 
+  geom_point()
+```
+
+<p> Nel grafico notiamo una prevalenza di due comportamenti delle osservazioni: una parte è concentrata su valori vicini allo 0 di ILLITERATE mentre gli altri sono distribuiti in maniera sparsa ma con una tendenza decresente, a conferma del valore negativo dell'indice di correlazione calcolato in precedenza. Data questa tendenza ci aspettiamo una devianza dei residui abbastanza elevata. Essendo il modulo dell'indice di correlazione alto, proviamo ad analizzare la relazione tra ILLITERATE e LIFEEXP</p>
+
+```{r, warning = FALSE, echo = FALSE}
+model = lm(LIFEEXP ~ ILLITERATE, data = data)
+ggplot(data, aes(x=ILLITERATE, y=LIFEEXP)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, fill = verde_acqua, color = arancione)
+```
+
+```{r, warning = FALSE, echo = TRUE}
+summary(model)
+```
+
+```{r, warning = FALSE, echo = FALSE}
+rs1 = data.frame(Fitted = fitted(model), Residuals = residuals(model))
+ggplot(rs1, aes(x = Fitted, y = Residuals)) +
+  geom_point() + 
+  geom_hline(yintercept = 0, col = arancione, linetype = "dashed") +
+  labs(title = "Residuals vs Fitted",
+       x = "Fitted values",
+       y = "Residuals") +
+  theme_minimal()
+
+rs2 = data.frame(StandardizedResiduals = rstandard(model))
+ggplot(rs2, aes(sample = StandardizedResiduals)) +
+  stat_qq() + 
+  stat_qq_line(color = arancione) +
+  labs(title = "Q-Q Plot of Standardized Residuals",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals") +
+  theme_minimal()
+```
+
+<p>
+Il modello lineare mostra un indice R^2 di 0.4653, possiamo quindi dire che la variabilità dei dati viene rappresentata solo in parte dal modello lineare. Come ci aspettavamo, il grafico dei residui mostra una devianza abbastanza elevata, con molti valori che si discostano dalla retta orizzontale rossa. Il Q-Q plot mostra come i residui non oscillino in maniera casuale attorno ai quantili teorici, il chè ci fa dubitare dell'efficacia di un modello lineare per predirre l'aspettativa di vita attraverso l'analfabetismo. </p>
+</p>
+
+<h3> HEALTHEXPEND </h3>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=HEALTHEXPEND, y=LIFEEXP)) + 
+  geom_point()
+```
+<p> La distribuzione di questi dati è evidentemente non lineare, si può provare ad applicare la funzione logaritmo alla variabile sull'asse x per vedere se la correlazione lineare sale e se è possibile ricavare altre inforazioni.</p>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=log(HEALTHEXPEND), y=LIFEEXP)) + 
+  geom_point()
+```
+<p> Dopo aver applicato il logaritmo alla variabile sull'asse x si può notare come la distribuzione dei dati sia più simile ad una retta che taglia il primo quadrante. Si mettono a confronto i due indici di correlazione con la variabile base e quella a cui è stata applicata una trasformazione.</p>
+
+
+```{r, warning = FALSE, echo = FALSE}
+corr_1 = cor(data$HEALTHEXPEND, data$LIFEEXP, use = "pairwise.complete.obs")
+corr_2 = cor(log(data$HEALTHEXPEND), data$LIFEEXP, use = "pairwise.complete.obs")
+corr_1
+corr_2
+```
+<p> Applicando il logaritmo alla variabile HEALTHEXPEND il valore dell'indice di correlazione sale da 0,5638 a 0,7801. Un'altra cosa che possiamo facilmente visualizzare per aggiungere informazioni al grafico è la regione di apparteneza dei diversi punti.</p>
+```{r, warning = FALSE, echo = FALSE}
+g1 = ggplot(data, aes(x=HEALTHEXPEND, y=LIFEEXP, color=REGION)) + 
+  geom_point() +
+  scale_color_manual(values = col_map) +
+  theme(legend.position = "none")
+g2 = ggplot(data, aes(x=log(HEALTHEXPEND), y=LIFEEXP, color=REGION)) + 
+  geom_point() +
+  scale_color_manual(values = col_map)+
+  ylab("")
+g1 + g2 + plot_layout()
+
+ggplot(data, aes(x=log(HEALTHEXPEND), y=LIFEEXP)) + 
+  geom_point() +
+  geom_smooth(aes(colour=REGION), se=F) +
+  scale_color_manual(values = col_map) +
+  facet_wrap(~ REGION)
+```
+<p> Si può facilmente notare la presenza di gruppi distinti sia prima che dopo aver applicato la trasformazione logaritmica. Essendo il coefficiente di correlazione lineare aumentato significativamente si ritiene opportuno costruire un modello lineare tra la variabile target e il logaritmo di HEALTHEXPEND. </p>
+```{r, warning = FALSE, echo = FALSE}
+model = lm(LIFEEXP ~ log(HEALTHEXPEND), data = data)
+intercept = coef(model)[1]
+slope = coef(model)[2]
+
+ggplot(data, aes(x=log(HEALTHEXPEND), y=LIFEEXP)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, fill = verde_acqua, color = arancione)
+```
+
+```{r, warning = FALSE, echo = TRUE}
+summary(model)
+```
+
+```{r, warning = FALSE, echo = FALSE}
+rs = data.frame(Fitted = fitted(model), Residuals = residuals(model))
+ggplot(rs, aes(x = Fitted, y = Residuals)) +
+  geom_point() + 
+  geom_hline(yintercept = 0, col = arancione, linetype = "dashed") +
+  labs(title = "Residuals vs Fitted",
+       x = "Fitted values",
+       y = "Residuals") +
+  theme_minimal()
+
+rs = data.frame(StandardizedResiduals = rstandard(model))
+ggplot(rs, aes(sample = StandardizedResiduals)) +
+  stat_qq() + 
+  stat_qq_line(col=arancione) +
+  labs(title = "Q-Q Plot of Standardized Residuals",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals") +
+  theme_minimal()
+```
+
+<p> L'indice R^2 che indica la bontà del nostro modello lineare assume un valore di 0,6086, esprimendo come circa il 60% della variabilità dei dati può essere spiegata dal modello lineare, valore sufficientemente alto da dimostrare la bontà del modello. Anche in questo caso però i grafici dei residui non mostrano un comportamento desiderabile, conseguenza della distribuzione sparsa e asimmetrica delle osservazioni nello scatterplot iniziale. </p>
+
+<h3>FERTILITY</h3>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=FERTILITY, y=LIFEEXP)) + 
+  geom_point()
+```
+<p>Un'altra cosa che possiamo facilmente visualizzare per aggiungere informazioni al grafico è la regione di apparteneza dei diversi punti.</p>
+
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=FERTILITY, y=LIFEEXP, col = REGION)) + 
+  geom_point() +
+  scale_color_manual(values = col_map)
+```
+
+<p>Nonostante anche in questo caso i punti siano piuttosto sparsi nello spazio, si riconosce, come per la variabile precedente, la vicinanza tra punti appartenenti alla stessa regione</p>
+
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=FERTILITY, y=LIFEEXP)) + 
+  geom_point() +
+  geom_smooth(aes(colour=REGION), se=F) +
+  scale_color_manual(values = col_map) +
+  facet_wrap(~ REGION) 
+  
+```
+<p>Notiamo come sia considerando separatamente i gruppi formati dalle regioni sia ossrvando il grafico generale, sembra essere presente una relazione lineare negativa tra le due variabili, come evidenziato dalla correlazione pari a -0,81. Ci aspettiamo quindi che una retta di regressione possa rappresentare bene il rapporto tra FERTILITY e LIFEEXP.</p>
+
+```{r, warning = FALSE, echo = FALSE}
+model = lm(LIFEEXP ~ FERTILITY, data = data)
+ggplot(data, aes(x=FERTILITY, y=LIFEEXP)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, fill = verde_acqua, color = arancione)
+```
+
+```{r, warning = FALSE, echo = TRUE}
+summary(model)
+```
+```{r, warning = FALSE, echo = FALSE}
+rs = data.frame(Fitted = fitted(model), Residuals = residuals(model))
+ggplot(rs, aes(x = Fitted, y = Residuals)) +
+  geom_point() + 
+  geom_hline(yintercept = 0, col =arancione, linetype = "dashed") +
+  labs(title = "Residuals vs Fitted",
+       x = "Fitted values",
+       y = "Residuals") +
+  theme_minimal()
+
+rs = data.frame(StandardizedResiduals = rstandard(model))
+ggplot(rs, aes(sample = StandardizedResiduals)) +
+  stat_qq() + 
+  stat_qq_line(col=arancione) +
+  labs(title = "Q-Q Plot of Standardized Residuals",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals") +
+  theme_minimal()
+```
+
+<p>Analizzando questo modello di regressione lineare, troviamo un indice R\^2 pari a 0.6508, valore che ci esprime come la retta svolga una buona approssimazione dei dati. Il comportamento dei residui è più casuale rispetto alle analisi precedenti, mentre rimane simile ai casi precedenti la varianza degli scarti rispetto al valore medio.</p>
+
+```{r, warning = FALSE, echo = TRUE}
+summary(model)
+```
+
+```{r, warning = FALSE, echo = FALSE}
+rs = data.frame(Fitted = fitted(model), Residuals = residuals(model))
+ggplot(rs, aes(x = Fitted, y = Residuals)) +
+  geom_point() + 
+  geom_hline(yintercept = 0, col = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted",
+       x = "Fitted values",
+       y = "Residuals") +
+  theme_minimal()
+
+rs = data.frame(StandardizedResiduals = rstandard(model))
+ggplot(rs, aes(sample = StandardizedResiduals)) +
+  stat_qq() + 
+  stat_qq_line(color = arancione) +
+  labs(title = "Q-Q Plot of Standardized Residuals",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals") +
+  theme_minimal()
+```
+
+<p>Analizzando questo modello di regressione lineare, troviamo un indice R^2 pari a 0.6508, valore che rappresenta una buona approssimazione dei dati da parte della retta. Il comportamento dei residui è più casuale rispetto alle analisi precedenti, ma rimane simile ai casi precedenti la varianza rispetto al valore medio.</p>
+
+<h3>BIRTHATTEND</h3>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=BIRTHATTEND, y=LIFEEXP)) + 
+  geom_point()
+
+ggplot(data, aes(x=BIRTHATTEND, y=LIFEEXP, col = REGION)) + 
+  geom_point()+
+  scale_color_manual(values = col_map)
+```
+<p>Notiamo nuovamente due comportanmenti distinti dei punti osservati, i quali si disperdono nello spazio con una tendenza a crescere per poi concentrarsi in alto a destra nel grafico. Anche evidenziando le regioni, non sembra che i gruppi siano tanto disinguibili quanto nei casi precedenti. Ricordando come il coefficiente di correlazione lineare delle due variabili sia pari a 0,72 il modello di regressione lineare dovrebbe poter rappresentare bene il rapporto sotteso ai dati. Non dovrebbe stupire infatti che nei paesi in cui la presenza di personale specializzato ad assistere le nascite è capillare, la qualità della vita e di conseguenza la sua durata media sarà maggiore.</p>
+
+```{r, warning = FALSE, echo = FALSE}
+model = lm(LIFEEXP ~ BIRTHATTEND, data = data)
+ggplot(data, aes(x=BIRTHATTEND, y=LIFEEXP)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, fill = verde_acqua, color = arancione)
+```
+
+```{r, warning = FALSE, echo = TRUE}
+summary(model)
+```
+
+```{r, warning = FALSE, echo = FALSE}
+rs = data.frame(Fitted = fitted(model), Residuals = residuals(model))
+ggplot(rs, aes(x = Fitted, y = Residuals)) +
+  geom_point() + 
+  geom_hline(yintercept = 0, col = arancione, linetype = "dashed") +
+  labs(title = "Residuals vs Fitted",
+       x = "Fitted values",
+       y = "Residuals") +
+  theme_minimal()
+
+rs = data.frame(StandardizedResiduals = rstandard(model))
+ggplot(rs, aes(sample = StandardizedResiduals)) +
+  stat_qq() + 
+  stat_qq_line(col=arancione) +
+  labs(title = "Q-Q Plot of Standardized Residuals",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals") +
+  theme_minimal()
+```
+
+<p>Il modello di regressione ha un R\^2 pari a 0,5233, valore inferiore alle aspettative probabilmente a causa della solita varianza residua elevata dovuta alla dispersione dei punti nello spazio. Il grafico dei residui sembra mostrare una tendenza negativa degli scarti dalla retta, comportamento che ci porta a dubitare ulteriormente della bontà del modello realizzato.</p>
+
+<h3>GDP</h3>
+
+<p>GDP non è una variabile con un indice di correlazione molto alto, tuttavia il GDP secondo noi dovrebbe essere un fattore correlato all'aspettativa di vita e decidiamo dunque di eseguire ugualmente un'analisi, nella speranza di ottenere risultati da sfruttare anche in un secondo momento.</p>
+
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=GDP, y=LIFEEXP)) + 
+  geom_point()
+```
+
+<p>
+
+Come potevamo aspettarci dall'indice di Pearson è difficile anche solo visualizzare una retta (diversa da una retta verticale) che approssimi i dati in maniera efficace. Tuttavia potrebbe essere per noi interessante andare a vedere se, considerando solo i paesi con un GDP maggiore ad una certa soglia, otteniamo risultati migliori. Vengono rimossi anche i valori di Stati Uniti e Giappone in quanto costituiscono outliers.
+
+<p>
+
+```{r, warning = FALSE, echo = FALSE}
+x = data$GDP[data$GDP>70 & data$GDP<4000]
+y = data$LIFEEXP[data$GDP>70 & data$GDP<4000]
+ggplot(NULL, aes(x=x, y=y)) + 
+  geom_point() +
+  labs(title = "GDP into LIFEEXP", x = "GDP", y = "LIFEEXP")
+```
+
+<p>I risultati non sembrano migliorare. Considerando quindi il basso valore dell'indice di correlazione e la rappresentazione grafica ottenuta,riconosciamo la mancanza di una relazione tra GDP e LIFEEXP (anche solo localmente). Come ultimo test proviamo a visulizzare il grafico a dispersione evidenziando le regioni.</p>
+
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=GDP, y=LIFEEXP, color=REGION)) + 
+  geom_point() +
+  scale_color_manual(values = col_map)
+
+```
+
+<p>Concludiamo che nemmeno i comportamenti regionali sembrano assumere forma lineare, tuttavia potremmo dedurre che REGION definisce abbastanza bene alcuni gruppi in questa analisi, soprattutto per quanto riguarda la regione 6, la 3 e la 8.</p>
+
+<h3> PHYSICIAN </h3>
+<p> Come già commentato durante l'analisi univariata, abbiamo alte aspettative per la variabile physician di essere influente per LIFEEXP. Cominciamo subito visualizzando lo scatterplot. </p>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=PHYSICIAN, y=LIFEEXP)) + 
+  geom_point()
+```
+<p> Il grafico non fa che confermare i risultati ottenuti con il calcolo dell'indice di Pearson, e dobbiamo ammettere di essere molto soddisfatti da ciò. Proviamo allora a disegnare la retta dei minimi quadrati, visualizzandone anche l'intervallo di confidenza al 95%. </p>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=PHYSICIAN, y=LIFEEXP)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se=TRUE, fill = verde_acqua, color = arancione) +
+  labs(title = "y ~ x")
+```
+<p> Il risultato ottenuto è davvero buono, e ci lascia soddisfatti. Proviamo ora a valutare la qualità della retta tramite il summary del modello ed ai grafici ResidualsVsFitted e QQS(tandardized)Residuals. </p>
+```{r, warning = FALSE, echo = TRUE}
+model = lm(LIFEEXP~PHYSICIAN, data)
+summary(model)
+```
+<p> I risultati del summary mostrano un valore di R^2 di 0,3974, abbastanza basso da farci dubitare della relazione lineare semplice. Come potevamo aspettarci vengono individuati alcuni outlier, sia a sinistra che a destra, tuttavia non ci stupisce molto poiché già presupponevamo l'esistenza di questo fenomeno dall'analisi univariata. </p>
+
+```{r, warning = FALSE, echo = FALSE}
+par(mfrow = c(2, 2))
+rs1 = data.frame(Fitted = fitted(model), Residuals = residuals(model))
+ggplot(rs1, aes(x = Fitted, y = Residuals)) +
+  geom_point(col=black) + 
+  geom_hline(yintercept = 0, col = verde_acqua, linetype = "dashed") +
+  labs(title = "Residuals vs Fitted",
+       x = "Fitted values",
+       y = "Residuals") 
+```
+<p> Abbiamo una forte eteroschedasticità e occorre quasi sicuramente pensare di trasformare i dati per ottenere risultati migliori. Vediamo prima di procedere cosa ci indica il grafico QQ SResiduals. </p>
+```{r, warning = FALSE, echo = FALSE}
+rs2 = data.frame(StandardizedResiduals = rstandard(model))
+ggplot(rs2, aes(sample = StandardizedResiduals)) +
+  stat_qq() + 
+  stat_qq_line(color = arancione) +
+  labs(title = "QQ SResiduals",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals") 
+
+```
+<p> Sembra non esserci una distribuzione degli errori che segue distribuzione normale standard, e come precedemente già valutato ci viene il dubbio che sia necessario effettuare una trasformazione dei dati per ottenere dei risultati soddisfacenti. Dunque proviamo a considerare il log(PHYSICIAN).</p>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=log(PHYSICIAN), y=LIFEEXP)) + 
+  geom_point(col=black)
+```
+<p> Notiamo un netto miglioramento nella rappresentazione dei dati, dunque non ci resta che vedere il comportamento della retta di regressione lineare. </p>
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=log(PHYSICIAN), y=LIFEEXP)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se=TRUE, fill = verde_acqua, color = arancione)+
+  labs(title = "y ~ x")
+```
+<p> Notiamo che la retta approssima sicuramente molto meglio rispetto a prima, ed infatti anche l'intervallo di confidenza si è ristretto rispetto. Calcoliamo il miglioramento in termini di correlazione tra prima e dopo ed eseguiamo un summary sul modello lineare per visualizzare altri tipi di miglioramento.</p>
+
+```{r, warning = FALSE, echo = TRUE}
+res = cor(log(data$PHYSICIAN), data$LIFEEXP, method = "pearson", use = "pairwise.complete.obs")
+res
+```
+```{r, warning = FALSE, echo = TRUE}
+model = lm(LIFEEXP~log(PHYSICIAN) , data)
+summary(model)
+```
+<p> Un miglioramento nella correlazione dell'11% (da 0.72 a 0.8) e un R\^2 salito da circa 0,4 a un valore di 0,65. Per provare valutiamo l'ipotesi di usare un modello quadratico e valutiamo i risultati. </p>
+
+```{r, warning = FALSE, echo = TRUE}
+model = lm(LIFEEXP~PHYSICIAN + I(PHYSICIAN^2) , data)
+summary(model)
+```
+```{r, warning = FALSE, echo = FALSE}
+ggplot(data, aes(x=PHYSICIAN, y=LIFEEXP)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2),  se=TRUE, fill = verde_acqua, color = arancione)+
+  labs(title = "y ~ x + x^2")
+```
+
+```{r, warning = FALSE, echo = FALSE}
+rs1 = data.frame(StandardizedResiduals = rstandard(model))
+ggplot(rs1, aes(sample = StandardizedResiduals)) +
+  stat_qq() + 
+  stat_qq_line(color = arancione) +
+  labs(title = "QQ SResiduals",
+       x = "Theoretical Quantiles",
+       y = "Standardized Residuals") 
+
+```
+<p> Notiamo, grazie al QQSResiduals un miglioramento significativo per quanto riguarda le code della distribuzione. Concludiamo dunque la nostra analisi bivariata della variabile PHYSICIAN. </p>
+
+***
+
+<center> <h2> Analisi Multivariata </h2> </center>
+<center> <h5> Analisi multivariata con target LIFEEXP </h5></center>
+
+<p> In questo paragrafo possiamo finalmente dedicarci all'analisi multivariata del nostro dataset con variabile target LIFEEXP. Ci approcceremo in 3 maniere diverse: <p>
+1. Aggiunta delle variabili più rilevanti trovate sino ad ora tramite le analisi precedentemente eseguite in un modello unico
+2. Uso del metodo stepAIC della libreria MASS a partire dal modello nullo al modello che comprende tutte le variabili in maniera lineare
+3. Combinazione dei risultati ottenuti dagli approcci 1 e 2 provando a trasformare qualora servissero le variabili considerate
+
+<h3> APPROCCIO 1 </h3>
+<p> Come primo approccio proviamo a perndere le variabili che hanno dato i risultati migliori nell'analisi bivariata per poi utilizzarle in un modello di regressione lineare multivariatia. Si decide di selezionare le variabili che hanno mostrato un indice R^2 superiore a 0,6 ovvero FERTILITTY, PHYSICIAN (il suo logaritmo), HEALTHEXPEND (anche in questo caso il logaritmo).</p>
+
+```{r, warning = FALSE, echo = TRUE}
+model <- lm(LIFEEXP ~ FERTILITY + log(PHYSICIAN) + log(HEALTHEXPEND), data = data)
+summary(model)
+```
+
+<p>Notiamo subito un miglioramento dell'indice R^2 rispetto alle analisi bivariate, risultato che ci aspettavamo considerando come sono state scelte le varaibili predittive. Proviamo ora ad aggiungere la variabile categoriale REGION nel modello, dato che la riteniamo importante nella determinazione delle aspettative di vita.</p>
+
+```{r, warning = FALSE, echo = TRUE}
+model <- lm(LIFEEXP ~ FERTILITY + log(PHYSICIAN) + log(HEALTHEXPEND) + REGION, data = data)
+summary(model)
+AIC(model)
+```
+<p>Osserivamo un aumento significativo dell'indice R^2, a conferma della nostra ipotesi. abbiamo quindi ottenuto un buon modello predittivo utilizzando quattro variabili</p>
+
+<h3> APPROCCIO 2 </h3>
+<p> Il metodo stepAIC() è una funzione di selezione del modello che utilizza il criterio di informazione di Akaike (AIC) per determinare quali variabili includere nel modello. Partendo dal modello più semplice possibile (il modello nullo) ed aggiungendo variabili (talvolta rimuovendole se serve) il metodo seleziona ad ogni passo il modello con il minor AIC fino ad arrivare ad un punto in cui non può più migliorare (il miglior modello raggiungibile). </p>
+```{r, warning = FALSE, echo = TRUE}
+
+clean_data = na.omit(data)
+nrow(clean_data)
+
+null_model = lm(LIFEEXP ~ 1, clean_data)
+
+full_model = lm(LIFEEXP ~ ., clean_data)
+
+best_model = stepAIC(null_model, trace = 0, scope = list(lower = null_model, upper = full_model), direction = "both")
+
+summary(best_model)
+AIC(best_model)
+```
+<p> Il summary del best_model è soddisfacente sotto alcuni punti di vista e inaspettato sotto altri. Come si poteva prevedere, ancora a partire dalle analisi univariate, la regione 6 è una variabile molto incidente per la previsione di LIFEEXPECT. Il fatto che anche HEALTHEXPEND sia coinvolta nel modello conferma i ragionamenti che avevamo valutato durante l'analisi bivariata. Ci sorprendono invece BIRTHATTEND che, nonostante avesse un R^2 inferiori a 0.6 nell'analisi bivariata, ora diventa la seconda variabile per importanza di p-value. Anche PUBLICEDUCATION, che era stata scartata per un livello di correlazione troppo basso, ora ha un p-value significativo. Ci aspettavamo che PHYSICIAN rientrasse nel modello finale. </p>
+
+<h3> APPROCCIO 3 </h3>
+<p> Ottenuti i risultati dall'approccio 1 e dall'approccio 2, proviamo ora a combinarli per ottenere qualcosa di ancora più efficace. Creiamo un modello con variabili indipendenti l'intersezione delle variabili inserite nell'approccio 1 e nell'approccio 2. </p>
+```{r, warning = FALSE, echo = TRUE}
+
+model = lm(LIFEEXP ~ REGION + BIRTHATTEND + PUBLICEDUCATION + 
+    ILLITERATE + FERTILITY + HEALTHEXPEND + log(PHYSICIAN) + log(HEALTHEXPEND), clean_data)
+
+summary(model)
+AIC(model)
+```
+<p> Siamo molto soddisfatti del risultato, poiché siamo riusciti a diminuire l'AIC del modello e a rendere PHYSICIAN rilevante ai fini delle previsioni, oltre ad aver aumentato leggerente R^2. Proviamo ora ad inserire dei termini al quadrato ed a rimuovere alcune variabili e verifichiamo che succede. </p>
+```{r, warning = FALSE, echo = TRUE}
+
+model = lm(LIFEEXP ~ REGION + BIRTHATTEND + PUBLICEDUCATION + 
+    ILLITERATE + FERTILITY + log(PHYSICIAN) + log(HEALTHEXPEND) +  I(PHYSICIAN^3), clean_data)
+
+summary(model)
+AIC(model)
+```
+<p> I risultati ottenuti sono davvero soddisfacenti. Abbiamo ottenuto risultati migliori sia in termini di AIC che di R^2. Questo ci aiuta a renderci conto di quanto, tutto il percorso di analisi, a partire dall'univariata in poi, sia stato utile per arrivare a questo punto. Ad evidenza di ciò, come ultima cosa, proviamo a vedere lo stepAIC cosa avrebbe generato se non avessimo, per esempio, scartato a priori le variabili con eccessivi NA.</p>
+
+```{r, warning = FALSE, echo = TRUE}
+t = read.csv("life expectation.csv", header = TRUE)
+
+clean_t = na.omit(t)
+nrow(clean_t)
+clean_t = clean_t[, !(names(clean_t) %in% c("COUNTRY"))]
+null_model = lm(LIFEEXP ~ 1, clean_t)
+
+full_model = lm(LIFEEXP ~ ., clean_t)
+
+best_model = stepAIC(null_model, scope = list(lower = null_model, upper = full_model), direction = "both", trace = 0)
+
+summary(best_model)
+```
+<p> Possiamo vedere che, nonostante le variabili aggiuntive di cui stepAIC era a disposizione l'R^2 sia al di sotto della soglia precedentemente ottenuta ed, inoltre, ricordiamo che questo modello lavora su un dataset che all'incirca contiene il 30% delle osservazioni rispetto a prima. </p>
+
+***
+
+<center><h2> Clustering e PCA</h2></center>
+```{r, warning = FALSE, echo = FALSE}
+pairs(numeric_vars, na.action = na.omit)
+```
+<p> Si nota come i grafici a dispersione delle variabili prese a coppie non mostrino l'esistenza di gruppi separati su cui vale la pena eseguire un'operazione di categorizzazione grazie al clustering. </p>
+
+<center><h3> Ulteriori studi sul dataset </h3></center>
+
+<h3> PCA </h3>
+<p> Non avendo informazioni su come siano state selezionate le regioni di partenza proviamo a ricavare 8 cluster basati sulle 8 variabili numeriche selezionate(senza quelle escluse) e confrontare i gruppi con quelli dati. Riselezioniamo le variabili per poter eseguire una PCA sul dataset. Poi eseguiamo la PCA per provare ad eseguire clustering basandoci sulle componenti principali individuate.</p>
+```{r, warning = FALSE, echo = FALSE}
+ddd = original_data[c("COUNTRY","BIRTHATTEND", "PUBLICEDUCATION", "ILLITERATE", "FERTILITY", "HEALTHEXPEND", "PHYSICIAN", "GDP", "LIFEEXP")]
+ddd = na.omit(ddd)
+
+data_pca = ddd[, c("BIRTHATTEND", "PUBLICEDUCATION", "ILLITERATE", "FERTILITY", "HEALTHEXPEND", "PHYSICIAN", "GDP", "LIFEEXP")]
+
+pca = prcomp(data_pca, scale = TRUE)
+# barplot della % di varianza spiegata dalle componenti principali con ggplot
+varianze = pca$sdev^2
+varianze_spieg = varianze/sum(varianze)
+varianze_spieg = round(varianze_spieg*100, 2)
+ggplot(NULL, aes(x = c(1:8), y = varianze_spieg)) + 
+  geom_bar(stat = "identity", fill = verde_acqua, col = "black") +
+  labs(title = "Varianza spiegata dalle componenti principali", x = "Componenti principali", y = "Varianza spiegata (%)")+
+  geom_point(aes(x = c(1:8), y = varianze_spieg), col = arancione, size = 3)+
+  geom_line(aes(x = c(1:8), y = varianze_spieg), col = arancione, size = 1) +
+  geom_text(aes(x = c(1:8), y = varianze_spieg), label = varianze_spieg, vjust = -0.5, col = "black") 
+
+```
+
+<p> Si nota come risulta difficile ridurre la dimensionalità in quanto le prime 2 componenti principali siano in grado di spiegare solamente il 70% della varianza. Per arrivare ad un valore accettabile (>90%) sarebbe necessario prendere le prime 5 componenti e considerando che si parte da 8 variabili, la riduzione non risulterebbe molto significativa. </p>
+```{r, warning = FALSE, echo = TRUE}
+pca
+```
+<p> Plottiamo le due componenti principali. </p> 
+```{r, warning = FALSE, echo = FALSE}
+#plot delle prime due componenti principali
+data_pca = as.data.frame(pca$x)
+data_pca$LIFEEXP = clean_data$LIFEEXP
+ggplot(data_pca, aes(x = PC1, y = PC2, col = LIFEEXP)) + 
+  geom_point() +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(title = "PCA", x = "PC1", y = "PC2")
+```
+<p> Eseguiamo un primo tentativo di clustering usando kmeans e 5 centroidi. </p>
+```{r, warning = FALSE, echo = FALSE}
+
+#tentativo di clustering
+data_pca$COUNTRY = ddd$COUNTRY
+
+ggplot(aes(x = PC1, y = PC2), data = data_pca) + 
+  geom_point() +
+  scale_color_manual(values = col_map) +
+  labs(title = "Clustering", x = "PC1", y = "PC2")
+
+kmeans = kmeans(data_pca[, c("PC1", "PC2")], centers = 8)
+data_pca$cluster = as.factor(kmeans$cluster)
+ggplot(aes(x = PC1, y = PC2, col = cluster), data = data_pca) + 
+  geom_point() +
+  scale_color_manual(values = col_map) +
+  labs(title = "Clustering", x = "PC1", y = "PC2")+
+  geom_text(aes(label = cluster), vjust = -0.5)
+```
+<p> Visualizziamo la mappa con le nuove regioni trovate. </p>
+```{r, warning = FALSE, echo = FALSE}
+sistema = function(x) gsub("\xa0", " ", x, useBytes = TRUE)
+leva_parentesi = function(x) gsub("\\(.*?\\)", "", x)
+data_pca$COUNTRY = as.vector(sapply(data_pca$COUNTRY, sistema))
+data_pca$COUNTRY[data_pca$COUNTRY == "C\xf4te d'Ivoire" ] = "Côte d'Ivoire"
+data_pca$COUNTRY = as.vector(sapply(data_pca$COUNTRY, leva_parentesi))
+
+world = ne_countries(scale = "medium", returnclass = "sf")
+countries_regions = data.frame(
+  country = data_pca$COUNTRY, 
+  region = data_pca$cluster
+)
+world_regions = world %>%
+  left_join(countries_regions, by = c("name_long" = "country"))
+
+ggplot(data = world_regions) +
+  geom_sf(aes(fill = region), color = "white", lwd = 0.2) +
+  scale_fill_manual(values = col_map) +
+  labs(title = "Regioni", fill = "Legenda")
+```
+<p> Si nota come i cluster trovati non siano molto significativi in quanto sono presenti moltissimi valori nulli. Nonostante ciò l'attuale gruppo 1 corrisponde abbastanza accuratamente alla regione 8 così come il gruppo 7 alla regione 7. La regione 6 (corrispondente all'Africa) in questo clustering è stata completamente divisa in altri gruppi. Alla regione 4 di partenza si riesce ad associare discretamente bene l'attuale gruppo 8 con l'aggiunta di altri paesi sopratutto appartenenti al continente africano. Riconosciute queste associazioni, concludiamo che i gruppi così trovati non forniscono intuizioni significative per interpretare la formazione dei gruppi presente nel dataset.</p>
