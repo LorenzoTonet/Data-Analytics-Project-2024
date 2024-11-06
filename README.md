@@ -5,7 +5,6 @@ conduct an exploratory analysis of the dataset "Life expectancy" in the R progra
 document" while the script in R markdown used to generate it is in the file "Data Analysis." Script contains only the code part without any formatting or comments.
 
 Link to download the dataset: https://instruction.bus.wisc.edu/jfrees/jfreesbooks/regression%20modeling/bookwebdec2010/CSVData/UNLifeExpectancy.csv
-\n
 
 Link to the description of those variables: https://instruction.bus.wisc.edu/jfrees/jfreesbooks/regression%20modeling/bookwebdec2010/DataDescriptions.pdf
 
